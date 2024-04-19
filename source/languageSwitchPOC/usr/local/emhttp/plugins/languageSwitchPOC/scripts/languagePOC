@@ -1,0 +1,28 @@
+#!/usr/bin/php -q
+<?PHP
+file_put_contents("/tmp/blah","wrf");
+  function write_ini_file($file,$array) {
+    $res = [];
+    foreach($array as $key => $val) {
+      if(is_array($val)) {
+        $res[] = "[$key]";
+        foreach($val as $skey => $sval)
+          $res[] = $skey.'="'.$sval.'"';
+      }
+      else
+        $res[] = $key.'="'.$val.'"';
+    }
+    file_put_contents($file,implode("\r\n", $res),LOCK_EX);
+  }
+
+  file_put_contents("/tmp/blah",print_r($argv,true));
+  passthru("/usr/local/sbin/language install {$argv[1]} nchan",$error);
+  file_put_contents("/tmp/blah",$error);
+  if ( ! intval($error) ) {
+    $lingo = @parse_ini_file("/boot/config/plugins/dynamix/dynamix.cfg",true);
+    $lingo = $lingo ?: [];
+    $lingo['display']['locale'] = str_replace(["lang-",".xml"],["",""],basename($argv[1]));
+    file_put_contents("/tmp/blah",print_r($lingo,true));
+    write_ini_file("/boot/config/plugins/dynamix.cfg",$lingo);
+  }
+?>

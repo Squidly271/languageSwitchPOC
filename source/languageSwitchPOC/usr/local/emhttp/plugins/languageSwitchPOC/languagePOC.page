@@ -1,0 +1,109 @@
+Menu='Buttons'
+Link='nav-user'
+---
+<?
+function languageDownloadJson($url) {
+  $ch = curl_init();
+  curl_setopt($ch,CURLOPT_URL,$url);
+  curl_setopt($ch,CURLOPT_FRESH_CONNECT,true);
+  curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+  curl_setopt($ch,CURLOPT_CONNECTTIMEOUT,45);
+  curl_setopt($ch,CURLOPT_TIMEOUT,45);
+  curl_setopt($ch,CURLOPT_ENCODING,"");
+  curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+  curl_setopt($ch,CURLOPT_FOLLOWLOCATION, true);
+  curl_setopt($ch,CURLOPT_FAILONERROR,true);
+
+  $out = curl_exec($ch);
+  curl_close($ch);
+  return $out;
+}
+// need to not download if its not first run
+$languageJson = str_replace("\n","",languageDownloadJson("https://raw.githubusercontent.com/Squidly271/AppFeed/master/switchLanguagePOC.json"));
+if ( $languageJson ) {
+  $selectLang = "";
+  foreach (json_decode($languageJson,true) as $lang => $lingo) {
+    if ( $lang !== "en_US" )
+      $selectLang .= "<option value='{$lang}'>{$lingo['Desc']}</option>";
+  }
+}
+
+if ( ! is_file("/usr/local/sbin/languagePOC") ) {
+  exec("ln -s /usr/local/emhttp/plugins/languageSwitchPOC/scripts/languagePOC /usr/local/sbin/languagePOC");
+  exec("chmod 0777 /usr/local/sbin/languagePOC");
+}
+
+?>
+<script>
+// also add in some test and only run following code if its the first run of the server
+if ( $.cookie("languagePOC") ) {
+  var languageMessage = "Keep Using This Language?";
+  var languageTranslated = "_(Keep Using This Language?)_";  // add to translations.txt
+  if ( languageTranslated != languageMessage ) {
+    languageMessage = languageMessage + "<br><br>" + languageTranslated;
+  }
+  var cancelText = ( "_(Cancel)_" == "Cancel" ) ? "Cancel" : "_(Cancel)_ / Cancel";
+  var okText = ( "_(OK)_" == "OK" ) ? "OK" : "_(OK)_ / OK";
+  swal({
+    html: true,
+    title: "_(Language)_", // Feed needs to grab this from settings.txt as it's not in translations.txt
+    text: languageMessage,
+    showConfirmButton: true,
+    showCancelButton: true,
+    cancelButtonText: cancelText,
+    confirmButtonText: okText
+  }, function (isConfirm) {
+    if (! isConfirm ) {
+      $.cookie("languagePOC","");
+      switchLanguage("");
+    } else {
+      $.cookie("languagePOC","");
+      $.cookie("languageSelected",true); 
+      // save a file here signifying that you've selected the language
+    }
+  });
+} else {
+  if ( ! $.cookie("languageSelected") ) {
+    <? if ( $languageJson ): ?>
+      var langPOCRawJson = '<?=$languageJson?>';
+      var languagePOC = JSON.parse(langPOCRawJson);
+      var langPOC = "";
+      swal({
+        html: true,
+        title: "<span id='LanguageTitle'>Language</span><br><i style='font-size:12rem;' class='fa fa-language' aria-hidden='true'></i></font>",
+        text: "<select onchange=langUpdate(); id='languageSelect'><option value='en_US''>English</option><?=$selectLang?></select><br><br><span id='languageDisclaimer'></span>"
+      },
+      function (isConfirm) {
+        if (isConfirm) {
+          langPOC = $("#languageSelect").val();
+          var languageURL = languagePOC[langPOC].URL;
+          if ( langPOC !== "en_US" ) {
+            ca_done_override = true;  // this flag automatically closes the install window instead of waiting for user to hit done
+            setTimeout(function(){openPlugin("languagePOC "+languageURL,"Install Language","","$.cookie('languagePOC','switched');switchLanguage(langPOC);")},250);
+          } else {
+            $.cookie("languageSelected",true);
+            // save some flag on the flash drive also
+            switchLanguage("");
+          }
+        }
+      });
+    <?endif;?>
+
+    function langUpdate() {
+      var lang = $("#languageSelect").val();
+      var desc = languagePOC[lang].Disclaim;
+      var OK = languagePOC[lang].OK;
+      var languageTitle = languagePOC[lang].Language;
+      if ( lang == "en_US" ) {
+        desc = "";
+        OK = "OK";
+        languageTitle = "Language";
+      }
+      
+      $(".confirm").html(OK);
+      $("#languageDisclaimer").html("<a href='https://forums.unraid.net/topic/93770-unraid-webgui-translations-disclaimer/' target='_blank'>"+desc+"</a>");
+      $("#LanguageTitle").html(languageTitle);
+    }
+  }
+}
+</script>

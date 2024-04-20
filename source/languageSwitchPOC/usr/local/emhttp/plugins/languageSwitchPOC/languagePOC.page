@@ -2,6 +2,32 @@ Menu='Buttons'
 Link='nav-user'
 ---
 <?
+$language = [];
+$language['jsonLocal'] = "/tmp/languagePOC/language.json";
+$language['jsonRemote'] = "https://raw.githubusercontent.com/Squidly271/AppFeed/master/switchLanguagePOC.json";
+
+if ( ! $_COOKIE['languageSelected'] ) {  // language not selected.  Also add in test for first run
+    // symlink the wrapper script to install and then switch to the new language
+  if ( ! is_file("/usr/local/sbin/languagePOC") ) {
+    exec("ln -s /usr/local/emhttp/plugins/languageSwitchPOC/scripts/languagePOC /usr/local/sbin/languagePOC");
+    exec("chmod 0777 /usr/local/sbin/languagePOC");
+  }
+  exec("mkdir -p /tmp/languagePOC");
+
+  $languageJson = is_file($language['jsonLocal']) ? file_get_contents($language['jsonLocal']) : str_replace("\n","",languageDownloadJson($language['jsonRemote']));
+
+  if ( $languageJson ) {
+    file_put_contents($language['jsonLocal'],$languageJson);
+
+    $selectLang = "";
+    foreach (json_decode($languageJson,true) as $lang => $lingo) {
+      if ( $lang !== "en_US" )
+        $selectLang .= "<option value='{$lang}'>{$lingo['Desc']}</option>";
+    }
+  } else 
+    $languagePOC = false;
+}
+
 function languageDownloadJson($url) {
   $ch = curl_init();
   curl_setopt($ch,CURLOPT_URL,$url);
@@ -18,92 +44,99 @@ function languageDownloadJson($url) {
   curl_close($ch);
   return $out;
 }
-// need to not download if its not first run
-$languageJson = str_replace("\n","",languageDownloadJson("https://raw.githubusercontent.com/Squidly271/AppFeed/master/switchLanguagePOC.json"));
-if ( $languageJson ) {
-  $selectLang = "";
-  foreach (json_decode($languageJson,true) as $lang => $lingo) {
-    if ( $lang !== "en_US" )
-      $selectLang .= "<option value='{$lang}'>{$lingo['Desc']}</option>";
-  }
-}
-
-if ( ! is_file("/usr/local/sbin/languagePOC") ) {
-  exec("ln -s /usr/local/emhttp/plugins/languageSwitchPOC/scripts/languagePOC /usr/local/sbin/languagePOC");
-  exec("chmod 0777 /usr/local/sbin/languagePOC");
-}
-
 ?>
 <script>
 // also add in some test and only run following code if its the first run of the server
-if ( $.cookie("languagePOC") ) {
-  var languageMessage = "Keep Using This Language?";
-  var languageTranslated = "_(Keep Using This Language?)_";  // add to translations.txt
-  if ( languageTranslated != languageMessage ) {
-    languageMessage = languageMessage + "<br><br>" + languageTranslated;
-  }
-  var cancelText = ( "_(Cancel)_" == "Cancel" ) ? "Cancel" : "_(Cancel)_ / Cancel";
-  var okText = ( "_(OK)_" == "OK" ) ? "OK" : "_(OK)_ / OK";
-  swal({
-    html: true,
-    title: "_(Language)_", // Feed needs to grab this from settings.txt as it's not in translations.txt
-    text: languageMessage,
-    showConfirmButton: true,
-    showCancelButton: true,
-    cancelButtonText: cancelText,
-    confirmButtonText: okText
-  }, function (isConfirm) {
-    if (! isConfirm ) {
-      $.cookie("languagePOC","");
-      switchLanguage("");
-    } else {
-      $.cookie("languagePOC","");
-      $.cookie("languageSelected",true); 
-      // save a file here signifying that you've selected the language
-    }
-  });
-} else {
-  if ( ! $.cookie("languageSelected") ) {
-    <? if ( $languageJson ): ?>
-      var langPOCRawJson = '<?=$languageJson?>';
-      var languagePOC = JSON.parse(langPOCRawJson);
-      var langPOC = "";
-      swal({
-        html: true,
-        title: "<span id='LanguageTitle'>Language</span><br><i style='font-size:12rem;' class='fa fa-language' aria-hidden='true'></i></font>",
-        text: "<select onchange=langUpdate(); id='languageSelect'><option value='en_US''>English</option><?=$selectLang?></select><br><br><span id='languageDisclaimer'></span>"
-      },
-      function (isConfirm) {
-        if (isConfirm) {
-          langPOC = $("#languageSelect").val();
-          var languageURL = languagePOC[langPOC].URL;
-          if ( langPOC !== "en_US" ) {
-            ca_done_override = true;  // this flag automatically closes the install window instead of waiting for user to hit done
-            setTimeout(function(){openPlugin("languagePOC "+languageURL,"Install Language","","$.cookie('languagePOC','switched');switchLanguage(langPOC);")},250);
-          } else {
-            $.cookie("languageSelected",true);
-            // save some flag on the flash drive also
-            switchLanguage("");
-          }
-        }
-      });
-    <?endif;?>
+// note: even though the GUI is now in the specifed language, it's likely not on the correct page for _()_ to work.  Grab the necessary translations from feed instead
+var languagePOC = new Object;
+var langPOC = "";
 
-    function langUpdate() {
-      var lang = $("#languageSelect").val();
-      var desc = languagePOC[lang].Disclaim;
-      var OK = languagePOC[lang].OK;
-      var languageTitle = languagePOC[lang].Language;
-      if ( lang == "en_US" ) {
-        desc = "";
-        OK = "OK";
-        languageTitle = "Language";
+$(function() {
+  if ( $.cookie("languagePOC")  && ! $.cookie("languageSelected") ) {  
+    <? if ( $languageJson ?? false ): ?>
+      var langPOCRawJson = '<?=$languageJson?>';
+      languagePOC = JSON.parse(langPOCRawJson);
+    <?endif;?>
+    var locale = "<?=$locale?>";
+    var languageMessage = "Switch to this language";
+    var languageTranslated = languagePOC[locale].Switch;
+    if ( languageTranslated != languageMessage ) {
+      languageMessage = languageMessage + "<br><br>" + languageTranslated;
+    }
+    var cancelText = ( languagePOC[locale].Cancel == "Cancel" ) ? "Cancel" : languagePOC[locale].Cancel + " / Cancel";
+    var okText = ( languagePOC[locale].OK == "OK" ) ? "OK" : languagePOC[locale].OK + " / OK";
+    swal({
+      html: true,
+      title: languagePOC[locale].Language,
+      text: languageMessage,
+      showConfirmButton: true,
+      showCancelButton: true,
+      cancelButtonText: cancelText,
+      confirmButtonText: okText
+    }, function (isConfirm) {
+      if (! isConfirm ) {
+        $.cookie("languagePOC","");
+        switchLanguage("");
+      } else {
+        $.cookie("languagePOC","");
+        $.cookie("languageSelected",true); 
       }
-      
-      $(".confirm").html(OK);
-      $("#languageDisclaimer").html("<a href='https://forums.unraid.net/topic/93770-unraid-webgui-translations-disclaimer/' target='_blank'>"+desc+"</a>");
-      $("#LanguageTitle").html(languageTitle);
+    });
+  } else {
+    if ( ! $.cookie("languageSelected") ) {
+      <? if ( $languageJson ?? false ): ?>
+        var langPOCRawJson = '<?=$languageJson?>';
+        languagePOC = JSON.parse(langPOCRawJson);
+        swal({
+          html: true,
+          title: "<span id='LanguageTitle'>Language</span><br><i style='font-size:12rem;' class='fa fa-language' aria-hidden='true'></i></font>",
+          text: "<select onchange=langUpdate(); id='languageSelect'><option value='en_US''>English</option><?=$selectLang?></select><br><br><span id='languageDisclaimer'></span>"
+        },
+        function (isConfirm) {
+          if (isConfirm) {
+            langPOC = $("#languageSelect").val();
+            var languageURL = languagePOC[langPOC].URL;
+            if ( langPOC !== "en_US" ) {
+              ca_done_override = true;  // This is not a dependency on CA.  This flag on openPlugin() automatically closes the install window instead of waiting for user to hit done
+              setTimeout(function(){openPlugin("languagePOC "+languageURL,"Install Language","","$.cookie('languagePOC','switched');switchLanguage(langPOC);")},250);
+            } else {
+              $.cookie("languageSelected",true);
+              $.cookie("languagePOC",null);
+              // save some flag on the flash drive here
+              if ( "<?=$locale?>" !== "en_US" ) {
+                switchLanguage("");
+              }
+            }
+          }
+        });
+      <?else:?>
+        swal({
+          html: true,
+          title: "No Internet",        
+          text: "Warning: Your server appears to not be able to contact the internet.  This isn't a requirement for Unraid to operate (except in the case of a Trial licence), but may indicate a connection issue to your router or inability to resolve DNS addresses.  Ask Larry in the forum to diagnose this!"
+        }, function (isConfirm) {
+          $.cookie("languageSelected",true); // don't bug user again for the language installation
+          $.cookie("languagePOC",true);
+        });
+      <?endif;?>
     }
   }
+});
+
+function langUpdate() {
+  var lang = $("#languageSelect").val();
+  if ( lang == "en_US" ) {
+    var desc = "";
+    var OK = "OK";
+    var languageTitle = "Language";
+  } else {
+    var desc = languagePOC[lang].Disclaim;
+    var OK = languagePOC[lang].OK;
+    var languageTitle = languagePOC[lang].Language;
+  }
+
+  $(".confirm").html(OK);
+  $("#languageDisclaimer").html("<a href='https://forums.unraid.net/topic/93770-unraid-webgui-translations-disclaimer/' target='_blank'>"+desc+"</a>");
+  $("#LanguageTitle").html(languageTitle);
 }
 </script>

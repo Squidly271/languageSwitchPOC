@@ -1,6 +1,5 @@
 #!/usr/bin/php -q
 <?PHP
-file_put_contents("/tmp/blah","wrf");
   function write_ini_file($file,$array) {
     $res = [];
     foreach($array as $key => $val) {

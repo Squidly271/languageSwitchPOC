@@ -6,7 +6,7 @@ $language = [];
 $language['jsonLocal'] = "/tmp/languagePOC/language.json";
 $language['jsonRemote'] = "https://raw.githubusercontent.com/Squidly271/AppFeed/master/switchLanguagePOC.json";
 
-if ( ! $_COOKIE['languageSelected'] ) {  // language not selected.  Also add in test for first run
+if ( ! ($_COOKIE['languageSelected'] ?? false) ) {  // language not selected.  Also add in test for first run
     // symlink the wrapper script to install and then switch to the new language
   if ( ! is_file("/usr/local/sbin/languagePOC") ) {
     exec("ln -s /usr/local/emhttp/plugins/languageSwitchPOC/scripts/languagePOC /usr/local/sbin/languagePOC");
@@ -90,7 +90,7 @@ $(function() {
         swal({
           html: true,
           title: "<span id='LanguageTitle'>Language</span><br><i style='font-size:12rem;' class='fa fa-language' aria-hidden='true'></i></font>",
-          text: "<select onchange=langUpdate(); id='languageSelect'><option value='en_US''>English</option><?=$selectLang?></select><br><br><span id='languageDisclaimer'></span>"
+          text: "<select onchange=langUpdate(); id='languageSelect'><option value='en_US'>English</option><?=$selectLang?></select><br><br><span id='languageDisclaimer'></span>"
         },
         function (isConfirm) {
           if (isConfirm) {
